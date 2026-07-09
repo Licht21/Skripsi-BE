@@ -17,7 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = tf.keras.models.load_model("burns_models.h5")
+model = tf.keras.models.load_model("burns_model_final_without_softmax_0507_b16.keras")
+
+ODIN_THRESHOLD = 0.4234
 
 IMAGE_WIDTH = 224
 IMAGE_HEIGHT = 224
@@ -31,8 +33,6 @@ CLASS_NAMES = {
 
 def preprocess_image(image_bytes):
     img = Image.open(io.BytesIO(image_bytes))
-
-    img.save("temp_image.jpg")
 
     img = img.convert("RGB")
     img = img.resize((IMAGE_WIDTH, IMAGE_HEIGHT))
@@ -50,16 +50,63 @@ async def predict(image: UploadFile = File(...)):
 
     image_tensor = preprocess_image(image_bytes)
 
+    odin_confidence = odin_score(model, image_tensor, T=10, epsilon=0.2)
+
+    print("ODIN Confidence:", odin_confidence)
+
+    if(odin_confidence < ODIN_THRESHOLD):
+        return {
+            "classification": -1,
+            "confidence": round(odin_confidence * 100, 2)
+        }
+
     predictions = model.predict(image_tensor, verbose=0)[0]
 
-    class_index = int(np.argmax(predictions))
+    probs = tf.nn.softmax(predictions).numpy()
 
-    confidence = float(predictions[class_index])
+    class_index = int(np.argmax(probs))
+
+    confidence = float(probs[class_index])
     print("executed")
-    print(predictions)
+    print(probs)
     print(confidence)
 
     return {
         "classification": class_index + 1,
         "confidence": round(confidence * 100, 2)
     }
+
+def odin_score(model, image, T, epsilon):
+
+    image = tf.convert_to_tensor(image, dtype=tf.float32)
+
+    with tf.GradientTape() as tape:
+        tape.watch(image)
+
+        logits = model(image, training=False)
+        scaled_logits = logits / T
+
+        pred = tf.argmax(scaled_logits, axis=1)
+
+        loss = tf.keras.losses.sparse_categorical_crossentropy(
+            pred,
+            scaled_logits,
+            from_logits=True
+        )
+
+    grad = tape.gradient(loss, image)
+
+    perturbed = image - epsilon * tf.sign(grad)
+
+    perturbed = tf.clip_by_value(
+    perturbed,
+    0.0,
+    255.0
+    )
+
+    logits = model(perturbed, training=False)
+    scaled_logits = logits / T
+
+    probs = tf.nn.softmax(scaled_logits)
+
+    return float(tf.reduce_max(probs))
