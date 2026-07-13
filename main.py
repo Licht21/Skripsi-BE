@@ -17,9 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = tf.keras.models.load_model("burns_model_final_without_softmax_b8e30lr00001.keras")
+model = tf.keras.models.load_model("bburns_model_final_without_softmax_b32e20lr0001 (1).keras")
 
-ODIN_THRESHOLD = 0.3422737121582031
+ODIN_THRESHOLD = 0.3429165780544281
 
 IMAGE_WIDTH = 224
 IMAGE_HEIGHT = 224
