@@ -19,7 +19,7 @@ app.add_middleware(
 
 model = tf.keras.models.load_model("bburns_model_final_without_softmax_b32e20lr0001 (1).keras")
 
-ODIN_THRESHOLD = 0.3429165780544281
+ODIN_THRESHOLD = 0.522494375705719
 
 IMAGE_WIDTH = 224
 IMAGE_HEIGHT = 224
@@ -50,7 +50,7 @@ async def predict(image: UploadFile = File(...)):
 
     image_tensor = preprocess_image(image_bytes)
 
-    odin_confidence = odin_score(model, image_tensor, T=100, epsilon=0.3)
+    odin_confidence = odin_score(model, image_tensor, T=5, epsilon=0.2)
 
     print("ODIN Confidence:", odin_confidence)
 
